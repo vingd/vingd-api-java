@@ -48,8 +48,8 @@ Client initialization:
     import com.vingd.client.exception.VingdOperationException;
     import com.vingd.client.exception.VingdTransportException;
     
-    string vingdUsername = "test@vingd.com";
-    string vingdPassword = "123";
+    String vingdUsername = "test@vingd.com";
+    String vingdPassword = "123";
     
     // Initialize Vingd client.
     VingdClient v = new VingdClient(
@@ -65,8 +65,8 @@ Wrap up Vingd order and redirect user to confirm his purchase at Vingd frontend:
 .. code-block:: java
 
     // Selling details.
-    string objectName = "My test object";
-    string objectURL = "http://localhost:666/";
+    String objectName = "My test object";
+    String objectURL = "http://localhost:666/";
     double orderPrice = 200;
     
     // Register Vingd object (once per selling item).
@@ -76,7 +76,7 @@ Wrap up Vingd order and redirect user to confirm his purchase at Vingd frontend:
     VingdOrder order = v.createOrder(oid, orderPrice);
     
     // Order ready, redirect user to confirm his purchase at Vingd frontend.
-    string orderURL = order.getRedirectURL();
+    String orderURL = order.getRedirectURL();
 
 As user confirms his purchase on Vingd frontend he is redirected back to object
 URL expanded with purchase verification parameters.
