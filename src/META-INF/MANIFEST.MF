@@ -1,0 +1,10 @@
+Manifest-Version: 1.0
+Bundle-License: http://opensource.org/licenses/MIT
+Bundle-ManifestVersion: 2
+Bundle-Name: Vingd API for Java
+Bundle-SymbolicName: com.vingd.vingd-api-java
+Bundle-Version: 0.1
+Bundle-Vendor: Vingd, Inc.
+Export-Package: com.vingd;version="0.1",
+ com.vingd.client;version="0.1",
+ com.vingd.client.exception;version="0.1"
