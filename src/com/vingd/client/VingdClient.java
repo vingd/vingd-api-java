@@ -31,7 +31,7 @@ import com.google.gson.Gson;
 
 
 public class VingdClient {
-	public static final String userAgent = "vingd-api-java/0.1";
+	public static final String userAgent = "vingd-api-java/0.1.1";
 
 	// production/default Vingd endpoint and Vingd user frontend base
 	public static final String productionEndpointURL = "https://api.vingd.com/broker/v1";
