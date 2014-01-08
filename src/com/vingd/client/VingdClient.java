@@ -39,7 +39,7 @@ public class VingdClient {
 
 	// sandbox/testing Vingd endpoint and Vingd user frontend base
 	public static final String sandboxEndpointURL = "https://api.vingd.com/sandbox/broker/v1";
-	public static final String sandboxFrontendURL = "http://www.sandbox.vingd.com";
+	public static final String sandboxFrontendURL = "https://www.sandbox.vingd.com";
 
 	// default order lifespan: 15min
 	public static final long defaultOrderExpiresMilliseconds = 15 * 60 * 1000;
