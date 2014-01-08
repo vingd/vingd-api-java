@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.TimeZone;
 import java.util.TreeMap;
+import java.util.regex.Pattern;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.httpclient.HttpClient;
@@ -335,6 +336,9 @@ public class VingdClient {
 	 * @throws IOException
 	 */
 	public VingdPurchase verifyPurchase(long oid, String tid) throws VingdTransportException, VingdOperationException, HttpException, IOException {
+		if (!isTokenFormatValid(tid)) {
+			throw new VingdTransportException("Invalid token format.", "TokenVerification");
+		}
 		Object response = request("GET", "/objects/"+oid+"/tokens/"+tid, null);
 		Map<String,Object> purchase = convertToMap(response);
 		
@@ -346,6 +350,11 @@ public class VingdClient {
 			toLong(purchase.get("transferid")),
 			purchase.get("context").toString()
 		);
+	}
+
+	private boolean isTokenFormatValid(String tid) {
+		// valid tid is alphanum(40)
+		return Pattern.matches("^[a-fA-F\\d]{1,40}$", tid);
 	}
 
 	public VingdPurchase verifyPurchase(String token) throws VingdTransportException, VingdOperationException, HttpException, IOException {
