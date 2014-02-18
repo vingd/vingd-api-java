@@ -1,7 +1,11 @@
 package com.vingd.client;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
+import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.DateFormat;
@@ -15,19 +19,14 @@ import java.util.TimeZone;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 
-import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpException;
-import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.methods.ByteArrayRequestEntity;
-import org.apache.commons.httpclient.methods.GetMethod;
-import org.apache.commons.httpclient.methods.PostMethod;
-import org.apache.commons.httpclient.methods.PutMethod;
+import javax.net.ssl.HttpsURLConnection;
+
+import sun.misc.BASE64Encoder;
+
+import com.google.gson.Gson;
 
 import com.vingd.client.exception.VingdOperationException;
 import com.vingd.client.exception.VingdTransportException;
-
-import com.google.gson.Gson;
 
 
 public class VingdClient {
@@ -106,51 +105,51 @@ public class VingdClient {
 	}
 
 	@SuppressWarnings("unchecked")
-	public Object request(String method, String resource, Object parameters) throws VingdTransportException, VingdOperationException, HttpException, IOException {
-		HttpMethod httpMethod = null;
+	public Object request(String method, String resource, Object parameters) throws VingdTransportException, VingdOperationException, IOException {
+		URL url = new URL(backendURL + resource);
+		HttpsURLConnection conn = (HttpsURLConnection)url.openConnection();
+		
 		method = method.toUpperCase();
-		if (method.equals("POST")) {
-			httpMethod = new PostMethod(backendURL + resource);
-		} else if(method.equals("GET")) {
-			httpMethod = new GetMethod(backendURL + resource);
-		} else if(method.equals("PUT")) {
-			httpMethod = new PutMethod(backendURL + resource);
+		if (method.equals("GET") || method.equals("POST") || method.equals("PUT")) {
+			conn.setRequestMethod(method);
 		} else {
 			throw new VingdTransportException("Unsupported HTTP method.", "Request");
 		}
-
-		byte[] base64 = Base64.encodeBase64((username + ":" + pwhash).getBytes("ASCII"));
-		String credentials = new String(base64);
-		httpMethod.addRequestHeader("Authorization", "Basic " + credentials);
-		httpMethod.addRequestHeader("User-Agent", userAgent);
+		
+		BASE64Encoder encoder = new BASE64Encoder();
+		String credentials = encoder.encode((username + ":" + pwhash).getBytes("ASCII"));
+		conn.setRequestProperty("Authorization", "Basic " + credentials);
+		conn.setRequestProperty("User-Agent", userAgent);
 		
 		if (parameters != null) {
+			conn.setDoOutput(true);
+			OutputStreamWriter writer = new OutputStreamWriter(conn.getOutputStream(), "UTF-8");
 			String parametersString = jsonStringify(parameters);
-			byte[] parametersBytes = parametersString.getBytes("UTF-8");
-			ByteArrayRequestEntity reqEntity = new ByteArrayRequestEntity(parametersBytes);
-			if (httpMethod instanceof PostMethod)
-				((PostMethod)httpMethod).setRequestEntity(reqEntity);
-			if (httpMethod instanceof PutMethod)
-				((PutMethod)httpMethod).setRequestEntity(reqEntity);
+			writer.write(parametersString);
+			writer.close();
 		}
 
-		HttpClient http = new HttpClient();
 		int statusCode = 0;
 		try {
-			statusCode = http.executeMethod(httpMethod);
-		} catch (Exception e) {
+			conn.connect();
+			statusCode = conn.getResponseCode();
+		} catch (IOException e) {
 			throw new VingdTransportException("Connecting to Vingd Broker failed.", e);
 		}
 
-		byte[] response;
+		StringBuffer response = new StringBuffer();
 		String jsonContent;
 		try {
-			response = httpMethod.getResponseBody();
-			jsonContent = new String(response, "UTF-8");
-		} catch (Exception e) {
+			InputStreamReader reader = new InputStreamReader(conn.getInputStream(), "UTF-8");
+			BufferedReader in = new BufferedReader(reader);
+			String line;
+			while ((line = in.readLine()) != null) response.append(line);
+			in.close();
+			jsonContent = response.toString();
+		} catch (IOException e) {
 			throw new VingdTransportException("Communication with Vingd Broker failed.", e);
 		} finally {
-			httpMethod.releaseConnection();
+			conn.disconnect();
 		}
 
 		// return data response if request successful
@@ -239,21 +238,21 @@ public class VingdClient {
 	 * @throws VingdTransportException 
 	 * 
 	 */
-	public long createObject(Object description) throws VingdTransportException, VingdOperationException, HttpException, IOException {
+	public long createObject(Object description) throws VingdTransportException, VingdOperationException, IOException {
 		Map<String,Object> parameters = new TreeMap<String,Object>();
 		parameters.put("description", description);
 		Object response = request("POST", "/registry/objects/", parameters);
 		return unpackBatchResponse(response, "oid");
 	}
 
-	public long createObject(String name, String url) throws VingdTransportException, VingdOperationException, HttpException, IOException {
+	public long createObject(String name, String url) throws VingdTransportException, VingdOperationException, IOException {
 		Map<String,Object> description = new TreeMap<String,Object>();
 		description.put("name", name);
 		description.put("url", url);
 		return createObject((Object) description);
 	}
 
-	public Map<String,Object> getObject(long oid) throws VingdTransportException, VingdOperationException, HttpException, IOException {
+	public Map<String,Object> getObject(long oid) throws VingdTransportException, VingdOperationException, IOException {
 		return convertToMap(request("GET", "/registry/objects/"+oid, null));
 	}
 
@@ -274,7 +273,7 @@ public class VingdClient {
 	 * @throws VingdTransportException 
  	 * 
 	 */
-	public VingdOrder createOrder(long oid, int price, String context, Date expiresLocal) throws VingdTransportException, VingdOperationException, HttpException, IOException {
+	public VingdOrder createOrder(long oid, int price, String context, Date expiresLocal) throws VingdTransportException, VingdOperationException, IOException {
 		String expiresWithTimezone = localDateToISO8601(expiresLocal);
 		Map<String,Object> parameters = new TreeMap<String,Object>();
 		parameters.put("price", price);
@@ -301,21 +300,21 @@ public class VingdClient {
 	 * @throws VingdOperationException 
 	 * @throws VingdTransportException 
 	 */
-	public VingdOrder createOrder(long oid, int price, String context, long expiresMilliseconds) throws VingdTransportException, VingdOperationException, HttpException, IOException {
+	public VingdOrder createOrder(long oid, int price, String context, long expiresMilliseconds) throws VingdTransportException, VingdOperationException, IOException {
 		Date now = new Date();
 		Date expiresLocal = new Date(now.getTime() + expiresMilliseconds);
 		return createOrder(oid, price, context, expiresLocal);
 	}
 
-	public VingdOrder createOrder(long oid, int price, String context) throws VingdTransportException, VingdOperationException, HttpException, IOException {
+	public VingdOrder createOrder(long oid, int price, String context) throws VingdTransportException, VingdOperationException, IOException {
 		return createOrder(oid, price, context, defaultOrderExpiresMilliseconds);
 	}
 
-	public VingdOrder createOrder(long oid, int price, long expiresMilliseconds) throws VingdTransportException, VingdOperationException, HttpException, IOException {
+	public VingdOrder createOrder(long oid, int price, long expiresMilliseconds) throws VingdTransportException, VingdOperationException, IOException {
 		return createOrder(oid, price, null, expiresMilliseconds);
 	}
 
-	public VingdOrder createOrder(long oid, int price) throws VingdTransportException, VingdOperationException, HttpException, IOException {
+	public VingdOrder createOrder(long oid, int price) throws VingdTransportException, VingdOperationException, IOException {
 		return createOrder(oid, price, null, defaultOrderExpiresMilliseconds);
 	}
 
@@ -335,7 +334,7 @@ public class VingdClient {
 	 * @throws HttpException
 	 * @throws IOException
 	 */
-	public VingdPurchase verifyPurchase(long oid, String tid) throws VingdTransportException, VingdOperationException, HttpException, IOException {
+	public VingdPurchase verifyPurchase(long oid, String tid) throws VingdTransportException, VingdOperationException, IOException {
 		if (!isTokenFormatValid(tid)) {
 			throw new VingdTransportException("Invalid token format.", "TokenVerification");
 		}
@@ -357,7 +356,7 @@ public class VingdClient {
 		return Pattern.matches("^[a-fA-F\\d]{1,40}$", tid);
 	}
 
-	public VingdPurchase verifyPurchase(String token) throws VingdTransportException, VingdOperationException, HttpException, IOException {
+	public VingdPurchase verifyPurchase(String token) throws VingdTransportException, VingdOperationException, IOException {
 		// parse `oid`, `tid` from JSON-encoded `token`, where: `token` = {"oid": <oid>, "tid": <tid>}
 		long oid;
 		String tid;
@@ -385,7 +384,7 @@ public class VingdClient {
 	 * @throws HttpException
 	 * @throws IOException
 	 */
-	public void commitPurchase(VingdPurchase purchase) throws VingdTransportException, VingdOperationException, HttpException, IOException {
+	public void commitPurchase(VingdPurchase purchase) throws VingdTransportException, VingdOperationException, IOException {
 		Map<String,Object> parameters = new TreeMap<String,Object>();
 		parameters.put("transferid", purchase.getTransferID());
 		request("PUT", "/purchases/"+purchase.getPurchaseID(), parameters);
