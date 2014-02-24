@@ -29,7 +29,7 @@ import com.vingd.client.exception.VingdTransportException;
 
 
 public class VingdClient {
-	public static final String userAgent = "vingd-api-java/0.2";
+	public static final String userAgent = "vingd-api-java/0.2.1";
 
 	// production/default Vingd endpoint and Vingd user frontend base
 	public static final String productionEndpointURL = "https://api.vingd.com/broker/v1";
