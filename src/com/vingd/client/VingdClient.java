@@ -20,8 +20,7 @@ import java.util.TreeMap;
 import java.util.regex.Pattern;
 
 import javax.net.ssl.HttpsURLConnection;
-
-import sun.misc.BASE64Encoder;
+import javax.xml.bind.DatatypeConverter;
 
 import com.google.gson.Gson;
 
@@ -116,8 +115,8 @@ public class VingdClient {
 			throw new VingdTransportException("Unsupported HTTP method.", "Request");
 		}
 		
-		BASE64Encoder encoder = new BASE64Encoder();
-		String credentials = encoder.encode((username + ":" + pwhash).getBytes("ASCII"));
+		byte[] credBytes = (username + ":" + pwhash).getBytes("ASCII");
+		String credentials = DatatypeConverter.printBase64Binary(credBytes);
 		conn.setRequestProperty("Authorization", "Basic " + credentials);
 		conn.setRequestProperty("User-Agent", userAgent);
 		
